@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="description" content="Jogo de corrida/aventura 2D neon para navegador" />
+  <title>Neon Racer</title>
+  <style>
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0a0a12;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    #game-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      position: fixed;
+      top: 0;
+      left: 0;
+    }
+
+    #hud {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      pointer-events: none;
+      z-index: 10;
+      padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left));
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #fff;
+    }
+
+    .hud-item {
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(100, 200, 255, 0.3);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 14px;
+      line-height: 1.3;
+      backdrop-filter: blur(4px);
+    }
+
+    .hud-item .label {
+      color: rgba(100, 200, 255, 0.7);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    .hud-item .value {
+      color: #fff;
+      font-size: 18px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #hud-debug {
+      position: fixed;
+      bottom: 8px;
+      left: 8px;
+      font-family: monospace;
+      font-size: 11px;
+      color: rgba(100, 255, 100, 0.8);
+      pointer-events: none;
+      z-index: 10;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 6px 8px;
+      border-radius: 4px;
+      white-space: pre;
+      display: none;
+    }
+
+    #touch-left,
+    #touch-right {
+      position: fixed;
+      bottom: 0;
+      width: 50%;
+      height: 40%;
+      z-index: 5;
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    #touch-left {
+      left: 0;
+    }
+
+    #touch-right {
+      right: 0;
+    }
+
+    #touch-left:active,
+    #touch-left.active {
+      background: linear-gradient(to right, rgba(0, 212, 255, 0.08), transparent);
+      box-shadow: inset 4px 0 16px rgba(0, 212, 255, 0.25);
+    }
+
+    #touch-right:active,
+    #touch-right.active {
+      background: linear-gradient(to left, rgba(0, 212, 255, 0.08), transparent);
+      box-shadow: inset -4px 0 16px rgba(0, 212, 255, 0.25);
+    }
+
+    #menu-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10, 10, 18, 0.92);
+      z-index: 20;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #fff;
+    }
+
+    #menu-overlay.hidden {
+      display: none;
+    }
+
+    #menu-overlay h1 {
+      font-size: clamp(28px, 6vw, 56px);
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: #00d4ff;
+      text-shadow: 0 0 30px rgba(0, 212, 255, 0.5), 0 0 60px rgba(0, 212, 255, 0.2);
+      margin-bottom: 8px;
+    }
+
+    #menu-overlay .subtitle {
+      font-size: clamp(12px, 2.5vw, 16px);
+      color: rgba(100, 200, 255, 0.6);
+      margin-bottom: 40px;
+    }
+
+    #menu-overlay button {
+      pointer-events: auto;
+      background: transparent;
+      border: 2px solid rgba(0, 212, 255, 0.6);
+      color: #00d4ff;
+      padding: 14px 48px;
+      font-size: 18px;
+      font-family: inherit;
+      cursor: pointer;
+      border-radius: 4px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      transition: all 0.2s;
+      margin: 6px;
+    }
+
+    #menu-overlay button:hover,
+    #menu-overlay button:focus-visible {
+      background: rgba(0, 212, 255, 0.15);
+      border-color: #00d4ff;
+      box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+    }
+
+    #result-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10, 10, 18, 0.92);
+      z-index: 20;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #fff;
+    }
+
+    #result-overlay.hidden {
+      display: none;
+    }
+
+    #result-overlay h2 {
+      font-size: clamp(24px, 5vw, 42px);
+      color: #00ff88;
+      text-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
+      margin-bottom: 20px;
+    }
+
+    #result-overlay .time-display {
+      font-size: clamp(32px, 8vw, 64px);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: #fff;
+      margin-bottom: 30px;
+    }
+
+    #result-overlay button {
+      pointer-events: auto;
+      background: transparent;
+      border: 2px solid rgba(0, 212, 255, 0.6);
+      color: #00d4ff;
+      padding: 12px 36px;
+      font-size: 16px;
+      font-family: inherit;
+      cursor: pointer;
+      border-radius: 4px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      transition: all 0.2s;
+      margin: 6px;
+    }
+
+    #result-overlay button:hover,
+    #result-overlay button:focus-visible {
+      background: rgba(0, 212, 255, 0.15);
+      border-color: #00d4ff;
+    }
+
+    #level-select-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10, 10, 18, 0.95);
+      z-index: 25;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #fff;
+      padding: 24px;
+    }
+
+    #level-select-overlay.hidden {
+      display: none;
+    }
+
+    #level-select-overlay h2 {
+      font-size: clamp(24px, 4vw, 36px);
+      color: #00d4ff;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+      text-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+    }
+
+    .level-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      width: 100%;
+      max-width: 900px;
+      max-height: 65vh;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .level-card {
+      background: rgba(20, 24, 40, 0.85);
+      border: 1px solid rgba(0, 212, 255, 0.3);
+      border-radius: 8px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      text-align: left;
+    }
+
+    .level-card:hover:not(.locked) {
+      border-color: #00d4ff;
+      background: rgba(0, 212, 255, 0.12);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(0, 212, 255, 0.25);
+    }
+
+    .level-card.locked {
+      opacity: 0.45;
+      cursor: not-allowed;
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .level-card .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .level-card .card-subtitle {
+      font-size: 12px;
+      color: rgba(100, 200, 255, 0.7);
+    }
+
+    .level-card .card-record {
+      margin-top: 8px;
+      font-size: 13px;
+      color: #00ff88;
+      font-weight: 600;
+    }
+
+    .badge-record {
+      font-size: 13px;
+      color: #ffd700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .hud-btn {
+      pointer-events: auto;
+      background: rgba(10, 15, 25, 0.65);
+      border: 1px solid rgba(100, 200, 255, 0.35);
+      border-radius: 6px;
+      padding: 0 12px;
+      min-width: 44px;
+      min-height: 44px;
+      font-size: 16px;
+      color: #00d4ff;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: manipulation;
+    }
+
+    .hud-btn:hover,
+    .hud-btn:focus-visible {
+      background: rgba(0, 212, 255, 0.2);
+      border-color: #00d4ff;
+      box-shadow: 0 0 12px rgba(0, 212, 255, 0.4);
+    }
+
+    @media (max-width: 480px) {
+      #hud {
+        padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left));
+        gap: 6px;
+      }
+      .hud-item {
+        padding: 4px 8px;
+        font-size: 12px;
+      }
+      .hud-item .value {
+        font-size: 15px;
+      }
+      .hud-btn {
+        min-width: 40px;
+        min-height: 40px;
+        padding: 0 8px;
+        font-size: 14px;
+      }
+    }
+
+    #pause-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(8, 10, 18, 0.92);
+      z-index: 30;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #fff;
+      padding: 20px;
+    }
+
+    #pause-overlay.hidden {
+      display: none;
+    }
+
+    #pause-overlay h2 {
+      font-size: clamp(26px, 5vw, 44px);
+      color: #00d4ff;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+      text-shadow: 0 0 24px rgba(0, 212, 255, 0.4);
+    }
+
+    #pause-overlay button {
+      pointer-events: auto;
+      background: transparent;
+      border: 2px solid rgba(0, 212, 255, 0.6);
+      color: #00d4ff;
+      padding: 12px 36px;
+      font-size: 16px;
+      font-family: inherit;
+      cursor: pointer;
+      border-radius: 4px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      transition: all 0.2s;
+      min-width: 220px;
+    }
+
+    #pause-overlay button:hover,
+    #pause-overlay button:focus-visible {
+      background: rgba(0, 212, 255, 0.15);
+      border-color: #00d4ff;
+      box-shadow: 0 0 16px rgba(0, 212, 255, 0.35);
+    }
+
+    .audio-panel {
+      background: rgba(16, 22, 38, 0.8);
+      border: 1px solid rgba(100, 200, 255, 0.25);
+      border-radius: 8px;
+      padding: 16px 20px;
+      width: 100%;
+      max-width: 380px;
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      backdrop-filter: blur(8px);
+    }
+
+    .audio-panel-title {
+      font-size: 13px;
+      color: rgba(100, 200, 255, 0.8);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      font-weight: 600;
+      border-bottom: 1px solid rgba(100, 200, 255, 0.15);
+      padding-bottom: 6px;
+    }
+
+    .audio-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 13px;
+      color: #ddd;
+    }
+
+    .audio-row input[type="range"] {
+      flex: 1;
+      max-width: 180px;
+      accent-color: #00d4ff;
+      cursor: pointer;
+    }
+
+    .audio-toggle-btn {
+      background: rgba(0, 212, 255, 0.1) !important;
+      border: 1px solid rgba(0, 212, 255, 0.4) !important;
+      padding: 6px 14px !important;
+      font-size: 12px !important;
+      min-width: 80px !important;
+      letter-spacing: 1px !important;
+    }
+
+    #dialogue-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 35;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      padding: 24px;
+      background: rgba(5, 7, 14, 0.4);
+      transition: opacity 0.2s;
+    }
+
+    #dialogue-overlay.hidden {
+      display: none;
+    }
+
+    .dialogue-box {
+      pointer-events: auto;
+      background: rgba(12, 16, 30, 0.94);
+      border: 1px solid rgba(0, 212, 255, 0.45);
+      border-left: 4px solid #00d4ff;
+      border-radius: 8px;
+      padding: 18px 24px;
+      width: 100%;
+      max-width: 640px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 24px rgba(0, 212, 255, 0.15);
+      backdrop-filter: blur(10px);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: max(16px, env(safe-area-inset-bottom));
+      animation: dialSlideUp 0.25s ease-out;
+    }
+
+    @keyframes dialSlideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .dialogue-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .dialogue-speaker {
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 2px;
+      color: #00d4ff;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dialogue-speaker::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #00ff88;
+      box-shadow: 0 0 8px #00ff88;
+      animation: pulseDot 1.5s infinite;
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.8); }
+    }
+
+    .dialogue-badge {
+      font-size: 11px;
+      color: rgba(100, 200, 255, 0.6);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-family: monospace;
+    }
+
+    .dialogue-text {
+      font-size: clamp(14px, 3.5vw, 16px);
+      line-height: 1.5;
+      color: #f0f4f8;
+      min-height: 48px;
+    }
+
+    .dialogue-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .dialogue-btn-sec {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: rgba(255, 255, 255, 0.6);
+      padding: 6px 14px;
+      font-size: 13px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .dialogue-btn-sec:hover {
+      border-color: rgba(255, 255, 255, 0.5);
+      color: #fff;
+    }
+
+    .dialogue-btn-pri {
+      background: rgba(0, 212, 255, 0.2);
+      border: 1px solid #00d4ff;
+      color: #00d4ff;
+      padding: 8px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 0 10px rgba(0, 212, 255, 0.25);
+    }
+
+    .dialogue-btn-pri:hover {
+      background: #00d4ff;
+      color: #0a0a12;
+      box-shadow: 0 0 16px rgba(0, 212, 255, 0.5);
+    }
+
+    .controls-hint {
+      position: fixed;
+      bottom: max(8px, env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.5);
+      pointer-events: none;
+      z-index: 10;
+      white-space: nowrap;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+      background: rgba(0, 0, 0, 0.45);
+      padding: 4px 12px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(4px);
+    }
+
+    button:focus-visible,
+    input:focus-visible {
+      outline: 2px solid #00d4ff !important;
+      outline-offset: 3px !important;
+    }
+
+    @media (max-width: 600px) or (pointer: coarse) {
+      .controls-hint {
+        font-size: 10px;
+        bottom: max(6px, env(safe-area-inset-bottom));
+        padding: 3px 8px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="game-canvas"></canvas>
+
+  <div id="hud">
+    <div class="hud-item">
+      <div class="label" id="hud-track-title">Circuito Alfa</div>
+      <div class="value" id="hud-goal">Chegada</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <div class="hud-item">
+        <div class="label">Tempo</div>
+        <div class="value" id="hud-time">0.00</div>
+      </div>
+      <div class="hud-item">
+        <div class="label">Velocidade</div>
+        <div class="value" id="hud-speed">0</div>
+      </div>
+      <button id="btn-hud-mute" class="hud-btn" title="Alternar Mudo">🔊</button>
+      <button id="btn-hud-pause" class="hud-btn" title="Pausar (Esc/P)">⏸</button>
+    </div>
+  </div>
+  <div id="hud-debug"></div>
+
+  <div id="touch-left"></div>
+  <div id="touch-right"></div>
+
+  <div id="menu-overlay">
+    <h1>Neon Racer</h1>
+    <div class="subtitle">Corrida neon 2D — deslize pelas paredes para acelerar</div>
+    <div style="display:flex;flex-direction:column;gap:8px;align-items:center;">
+      <button id="btn-start">Iniciar Corrida</button>
+      <button id="btn-levels">Selecionar Fase</button>
+      <button id="btn-menu-mute" style="font-size:13px;padding:8px 24px;border-color:rgba(0,212,255,0.4);color:rgba(100,200,255,0.85);margin-top:4px;">🔊 Áudio: Ativado</button>
+      <button id="btn-reset-save" style="font-size:12px;padding:8px 20px;border-color:rgba(255,50,100,0.4);color:rgba(255,100,150,0.8);margin-top:12px;">Resetar Progresso</button>
+    </div>
+  </div>
+
+  <div id="pause-overlay" class="hidden">
+    <h2>Jogo Pausado</h2>
+    <div style="display:flex;flex-direction:column;gap:10px;align-items:center;">
+      <button id="btn-resume">Continuar</button>
+      <button id="btn-pause-retry">Reiniciar Fase</button>
+      <button id="btn-pause-levels">Selecionar Fase</button>
+      <button id="btn-pause-menu">Menu Principal</button>
+    </div>
+    <div class="audio-panel">
+      <div class="audio-panel-title">Áudio e Preferências</div>
+      <div class="audio-row">
+        <span>Mudo:</span>
+        <button id="btn-pause-mute" class="audio-toggle-btn">Não</button>
+      </div>
+      <div class="audio-row">
+        <span>Fantasma (Ghost):</span>
+        <button id="btn-pause-ghost" class="audio-toggle-btn">Sim</button>
+      </div>
+      <div class="audio-row">
+        <span>Volume Geral:</span>
+        <input type="range" id="slider-master-vol" min="0" max="100" value="60" />
+      </div>
+      <div class="audio-row">
+        <span>Música:</span>
+        <input type="range" id="slider-music-vol" min="0" max="100" value="35" />
+      </div>
+      <div class="audio-row">
+        <span>Efeitos (SFX):</span>
+        <input type="range" id="slider-sfx-vol" min="0" max="100" value="50" />
+      </div>
+    </div>
+  </div>
+
+  <div id="dialogue-overlay" class="hidden">
+    <div class="dialogue-box">
+      <div class="dialogue-header">
+        <span class="dialogue-speaker" id="dialogue-speaker">KRONA</span>
+        <span class="dialogue-badge">SISTEMA ATIVO</span>
+      </div>
+      <div class="dialogue-text" id="dialogue-text">...</div>
+      <div class="dialogue-actions">
+        <button id="btn-dialogue-skip" class="dialogue-btn-sec">Pular</button>
+        <button id="btn-dialogue-next" class="dialogue-btn-pri">Avançar ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="level-select-overlay" class="hidden">
+    <h2>Selecionar Fase</h2>
+    <div class="level-grid" id="level-grid"></div>
+    <button id="btn-close-levels" style="margin-top:20px;">Voltar ao Menu</button>
+  </div>
+
+  <div id="result-overlay" class="hidden">
+    <h2 id="result-title">Chegada!</h2>
+    <div class="badge-record" id="result-record-badge"></div>
+    <div class="time-display" id="result-time">0.00</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;">
+      <button id="btn-next">Próxima Fase</button>
+      <button id="btn-retry">Tentar novamente</button>
+      <button id="btn-levels-from-result">Fases</button>
+      <button id="btn-menu">Menu</button>
+    </div>
+  </div>
+
+  <div class="controls-hint" id="controls-hint">
+    A/D ou ←/→ para virar · R reinicia · Esc/P pausa · F3 debug
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>
